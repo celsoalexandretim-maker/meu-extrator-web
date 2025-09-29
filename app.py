@@ -20,15 +20,15 @@ def extrair_dados_do_pdf(arquivo_pdf):
         st.warning("Nenhum texto extraível foi encontrado no PDF. Pode ser um documento scaneado (imagem).")
         return None
 
-    # --- REGRAS DE EXTRAÇÃO FINAIS E MAIS ROBUSTAS ---
+    # --- REGRAS DE EXTRAÇÃO FINAIS E MAIS PRECISAS ---
 
-    # 1. Número do Contrato (nova estratégia de busca)
-    codigo = (re.search(r"^\s*([A-Z0-9]{6})\s*$", texto_completo, re.MULTILINE).group(1)
-              if re.search(r"^\s*([A-Z0-9]{6})\s*$", texto_completo, re.MULTILINE) else "Não encontrado")
+    # 1. Número do Contrato (busca robusta)
+    codigo = (re.search(r"Contrato de Licença de Uso\s+([A-Z0-9]{6})", texto_completo, re.IGNORECASE).group(1) 
+              if re.search(r"Contrato de Licença de Uso\s+([A-Z0-9]{6})", texto_completo, re.IGNORECASE) else "Não encontrado")
 
-    # 2. Razão Social (agora buscando por "Nome Fantasia" como sugerido)
-    razao_social = (re.search(r"Nome Fantasia:\s*([^\n]+)", texto_completo).group(1).strip()
-                    if re.search(r"Nome Fantasia:\s*([^\n]+)", texto_completo) else "Não encontrada")
+    # 2. Razão Social (com o limite "Licenciante:" como sugerido)
+    razao_social = (re.search(r"Razão Social:\s*(.*?)Licenciante:", texto_completo, re.DOTALL).group(1).strip().replace("\n", " ")
+                    if re.search(r"Razão Social:\s*(.*?)Licenciante:", texto_completo, re.DOTALL) else "Não encontrada")
     
     # CNPJ (buscando pelo label específico da contratante)
     cnpj = (re.search(r"CNPJ/CPF:\s*.*?(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})", texto_completo, re.DOTALL).group(1)
