@@ -2,6 +2,7 @@ import streamlit as st
 import pdfplumber
 import pandas as pd
 import re
+from datetime import datetime
 
 def extrair_dados_do_pdf(arquivo_pdf):
     texto_completo = ""
@@ -18,6 +19,8 @@ def extrair_dados_do_pdf(arquivo_pdf):
     if not texto_completo:
         st.warning("Nenhum texto extraível foi encontrado no PDF. Pode ser um documento scaneado (imagem).")
         return None
+
+    # --- REGRAS DE EXTRAÇÃO PERSONALIZADAS ---
 
     codigo = (re.search(r"Contrato de Licença de Uso\s*([A-Z]{6})", texto_completo, re.IGNORECASE).group(1) 
               if re.search(r"Contrato de Licença de Uso\s*([A-Z]{6})", texto_completo, re.IGNORECASE) else "Não encontrado")
@@ -51,13 +54,32 @@ def extrair_dados_do_pdf(arquivo_pdf):
     valor_total = (re.search(r"Valor Total\s*(R\$\s*[\d\.,]+)", texto_completo).group(1)
                    if re.search(r"Valor Total\s*(R\$\s*[\d\.,]+)", texto_completo) else "Não encontrado")
 
-    data = (re.search(r"(\d{1,2} de [A-Za-z]+ de \d{4})", texto_completo).group(1)
-            if re.search(r"(\d{1,2} de [A-Za-z]+ de \d{4})", texto_completo) else "Não encontrado")
+    # Extrai a data por extenso e a formata para DD/MM/AAAA
+    data_formatada = "Não encontrada"
+    match_data = re.search(r"\d{1,2} de [A-Za-z]+ de \d{4}", texto_completo)
+    if match_data:
+        data_texto = match_data.group(0)
+        meses = {
+            'janeiro': '01', 'fevereiro': '02', 'março': '03', 'abril': '04', 
+            'maio': '05', 'junho': '06', 'julho': '07', 'agosto': '08', 
+            'setembro': '09', 'outubro': '10', 'novembro': '11', 'dezembro': '12'
+        }
+        for nome, numero in meses.items():
+            if nome in data_texto.lower():
+                data_texto_numerico = data_texto.lower().replace(nome, numero).replace(' de ', '/')
+                try:
+                    data_obj = datetime.strptime(data_texto_numerico, '%d/%m/%Y')
+                    data_formatada = data_obj.strftime('%d/%m/%Y')
+                except ValueError:
+                    data_formatada = "Erro"
+                break
     
-    vendedor = (re.search(r"Vendedor:\s*([^\n]+)", texto_completo).group(1).strip()
-                if re.search(r"Vendedor:\s*([^\n]+)", texto_completo) else "Não encontrado")
+    # Extrai o nome completo e pega apenas a primeira parte (primeiro nome)
+    vendedor_completo = (re.search(r"Vendedor:\s*([^\n]+)", texto_completo).group(1).strip()
+                         if re.search(r"Vendedor:\s*([^\n]+)", texto_completo) else "Não encontrado")
+    primeiro_nome_vendedor = vendedor_completo.split(" ")[0] if vendedor_completo != "Não encontrado" else "Não encontrado"
 
-    # Dicionário com a estrutura de saída para a planilha
+    # Organiza os dados na ordem exata da sua planilha
     dados = {
         "CONTRATO": [codigo],
         "CNPJ": [cnpj],
@@ -66,8 +88,8 @@ def extrair_dados_do_pdf(arquivo_pdf):
         "Produto": [produto],
         "Qtd Novos": [quantidade],
         "Valor Novos": [valor_total],
-        "Data da Venda": [data],
-        "Vendedor": [vendedor.split(" ")[0]]
+        "Data da Venda": [data_formatada],
+        "Vendedor": [primeiro_nome_vendedor],
     }
     return pd.DataFrame.from_dict(dados)
 
