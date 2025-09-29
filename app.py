@@ -20,30 +20,25 @@ def extrair_dados_do_pdf(arquivo_pdf):
         st.warning("Nenhum texto extraível foi encontrado no PDF. Pode ser um documento scaneado (imagem).")
         return None
 
-    # --- REGRAS DE EXTRAÇÃO PERSONALIZADAS E FINAIS ---
+    # --- REGRAS DE EXTRAÇÃO REVISADAS E ROBUSTAS ---
 
-    # 1. Número do Contrato
-    codigo = (re.search(r"Contrato de Licença de Uso\s+([A-Z0-9]{6})", texto_completo, re.IGNORECASE).group(1) 
-              if re.search(r"Contrato de Licença de Uso\s+([A-Z0-9]{6})", texto_completo, re.IGNORECASE) else "Não encontrado")
+    # 1. Número do Contrato (mais flexível)
+    codigo = (re.search(r"Contrato de Licença de Uso.*?([A-Z0-9]{6})", texto_completo, re.DOTALL).group(1)
+              if re.search(r"Contrato de Licença de Uso.*?([A-Z0-9]{6})", texto_completo, re.DOTALL) else "Não encontrado")
 
-    # Isola o bloco de texto da Contratante para evitar pegar dados da Contratada
-    contratante_bloco = texto_completo
-    match_bloco = re.search(r"Dados da Contratante(.*?)Itens adquiridos", texto_completo, re.DOTALL)
-    if match_bloco:
-        contratante_bloco = match_bloco.group(1)
-
-    # 2. Razão Social e CNPJ (apenas da Contratante)
-    razao_social = (re.search(r"Razão Social:\s*([^\n]+)", contratante_bloco).group(1).strip()
-                    if re.search(r"Razão Social:\s*([^\n]+)", contratante_bloco) else "Não encontrada")
-    cnpj = (re.search(r"(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})", contratante_bloco).group(0)
-            if re.search(r"(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})", contratante_bloco) else "Não encontrado")
+    # 2. Razão Social (com limite claro para não vazar)
+    razao_social = (re.search(r"Razão Social:\s*(.*?)Nome Fantasia:", texto_completo, re.DOTALL).group(1).strip().replace("\n", " ")
+                    if re.search(r"Razão Social:\s*(.*?)Nome Fantasia:", texto_completo, re.DOTALL) else "Não encontrada")
+    
+    # CNPJ (já estava funcionando bem)
+    cnpj = (re.search(r"(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})", texto_completo).group(0)
+            if re.search(r"(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})", texto_completo) else "Não encontrado")
     
     # 3. Forma de Pagamento (com abreviação)
     forma_pagamento_raw = (re.search(r"Forma de Pagamento:\s*([^\n]+)", texto_completo).group(1).strip()
                            if re.search(r"Forma de Pagamento:\s*([^\n]+)", texto_completo) else "")
     parcelas_raw = (re.search(r"Parcelas:\s*(\d+)", texto_completo).group(1).strip()
                     if re.search(r"Parcelas:\s*(\d+)", texto_completo) else "")
-    
     forma_final = forma_pagamento_raw
     if "cartao" in forma_pagamento_raw.lower():
         forma_final = "Cartão"
@@ -51,17 +46,17 @@ def extrair_dados_do_pdf(arquivo_pdf):
         forma_final = "Boleto"
     pagamento_final = f"{forma_final} {parcelas_raw}x" if forma_final and parcelas_raw else forma_final
 
-    # 4. Produto (com abreviação)
+    # 4. Produto (busca mais genérica pela estrutura)
     itens_bloco = re.search(r"Itens adquiridos(.*?)Condição de Pagamento", texto_completo, re.DOTALL)
     produto = "Não encontrado"
     quantidade = "Não encontrado"
     if itens_bloco:
         bloco_itens = itens_bloco.group(1)
-        match_produto = re.search(r"\d+\s+UN\s+.*?\s+(ZWCAD\s+[A-Z\s]+)", bloco_itens)
+        match_produto = re.search(r"\d+\s+UN\s+[\w-]+\s+([^\n]+)", bloco_itens)
         if match_produto:
             produto_extraido = match_produto.group(1).strip()
             produto = produto_extraido.replace("STANDARD", "STD").replace("PROFESSIONAL", "PRO")
-            produto = re.sub(r'\s+\d{4}', '', produto).strip() # Remove o ano
+            produto = re.sub(r'\s+\d{4}', '', produto).strip()
         
         match_qtde = re.search(r"(\d+)\s+UN", bloco_itens)
         if match_qtde:
@@ -86,11 +81,11 @@ def extrair_dados_do_pdf(arquivo_pdf):
                 break
     
     # Vendedor (apenas primeiro nome)
-    vendedor_completo = (re.search(r"Vendedor:\s*([^\n]+)", contratante_bloco).group(1).strip()
-                         if re.search(r"Vendedor:\s*([^\n]+)", contratante_bloco) else "Não encontrado")
+    vendedor_completo = (re.search(r"Vendedor:\s*([^\n]+)", texto_completo).group(1).strip()
+                         if re.search(r"Vendedor:\s*([^\n]+)", texto_completo) else "Não encontrado")
     primeiro_nome_vendedor = vendedor_completo.split(" ")[0] if vendedor_completo != "Não encontrado" else "Não encontrado"
 
-    # --- ESTRUTURA DE SAÍDA FINAL ---
+    # Estrutura de saída final
     dados = {
         "CONTRATO": [codigo],
         "CNPJ": [cnpj],
