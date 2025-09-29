@@ -25,7 +25,6 @@ def extrair_dados_do_pdf(arquivo_pdf):
     codigo = (re.search(r"Contrato de Licença de Uso.*?([A-Z0-9]{6})", texto_completo, re.DOTALL).group(1)
               if re.search(r"Contrato de Licença de Uso.*?([A-Z0-9]{6})", texto_completo, re.DOTALL) else "Não encontrado")
 
-    # Razão Social (NÃO ALTERADA - FUNCIONANDO)
     razao_social = (re.search(r"Razão Social:\s*(.*?)Licenciante:", texto_completo, re.DOTALL).group(1).strip().replace("\n", " ")
                     if re.search(r"Razão Social:\s*(.*?)Licenciante:", texto_completo, re.DOTALL) else "Não encontrada")
     
@@ -46,19 +45,23 @@ def extrair_dados_do_pdf(arquivo_pdf):
     else:
         pagamento_final = forma_final
 
-    # --- CORREÇÃO NO PRODUTO ---
+    # --- CORREÇÃO FINAL NO PRODUTO ---
     itens_bloco = re.search(r"Itens adquiridos(.*?)Condição de Pagamento", texto_completo, re.DOTALL)
     produto = "Não encontrado"
     quantidade = "Não encontrado"
     if itens_bloco:
         bloco_itens = itens_bloco.group(1)
-        # Nova regra: Procura o texto diretamente abaixo de "Descrição"
-        match_produto = re.search(r"Descrição\s+([^\n]+)", bloco_itens)
-        if match_produto:
-            produto_extraido = match_produto.group(1).strip()
-            # Aplica as substituições
-            produto = produto_extraido.replace("STANDARD", "STD").replace("PROFESSIONAL", "PRO")
         
+        # Nova regra: Procura por nomes de produtos conhecidos e fixos
+        match_produto = re.search(r"(ZWCAD STANDARD|ZWCAD PROFESSIONAL)", bloco_itens, re.IGNORECASE)
+        if match_produto:
+            produto_extraido = match_produto.group(1).upper()
+            if "STANDARD" in produto_extraido:
+                produto = "ZWCAD STD"
+            elif "PROFESSIONAL" in produto_extraido:
+                produto = "ZWCAD PRO"
+        
+        # A lógica da quantidade permanece a mesma
         match_qtde = re.search(r"(\d+)\s+UN", bloco_itens)
         if match_qtde:
             quantidade = match_qtde.group(1).strip()
@@ -108,10 +111,4 @@ if uploaded_file is not None:
         if df_dados is not None:
             st.success("2. Dados extraídos com sucesso!")
             st.dataframe(df_dados)
-            texto_para_copiar = df_dados.to_csv(sep='\t', index=False, header=False)
-            st.subheader("3. Copie abaixo e cole na sua planilha")
-            st.text_area(
-                "Texto formatado para cópia (Ctrl+A para selecionar tudo):", 
-                texto_para_copiar, 
-                height=150
-            )
+            texto_para_copiar = df_dados.to_csv(sep
