@@ -20,41 +20,47 @@ def extrair_dados_do_pdf(arquivo_pdf):
         st.warning("Nenhum texto extraível foi encontrado no PDF. Pode ser um documento scaneado (imagem).")
         return None
 
-    # --- REGRAS DE EXTRAÇÃO REVISADAS E ROBUSTAS ---
+    # --- REGRAS DE EXTRAÇÃO FINAIS E MAIS ROBUSTAS ---
 
-    # 1. Número do Contrato (mais flexível)
-    codigo = (re.search(r"Contrato de Licença de Uso.*?([A-Z0-9]{6})", texto_completo, re.DOTALL).group(1)
-              if re.search(r"Contrato de Licença de Uso.*?([A-Z0-9]{6})", texto_completo, re.DOTALL) else "Não encontrado")
+    # 1. Número do Contrato (nova estratégia de busca)
+    codigo = (re.search(r"^\s*([A-Z0-9]{6})\s*$", texto_completo, re.MULTILINE).group(1)
+              if re.search(r"^\s*([A-Z0-9]{6})\s*$", texto_completo, re.MULTILINE) else "Não encontrado")
 
-    # 2. Razão Social (com limite claro para não vazar)
-    razao_social = (re.search(r"Razão Social:\s*(.*?)Nome Fantasia:", texto_completo, re.DOTALL).group(1).strip().replace("\n", " ")
-                    if re.search(r"Razão Social:\s*(.*?)Nome Fantasia:", texto_completo, re.DOTALL) else "Não encontrada")
+    # 2. Razão Social (agora buscando por "Nome Fantasia" como sugerido)
+    razao_social = (re.search(r"Nome Fantasia:\s*([^\n]+)", texto_completo).group(1).strip()
+                    if re.search(r"Nome Fantasia:\s*([^\n]+)", texto_completo) else "Não encontrada")
     
-    # CNPJ (já estava funcionando bem)
-    cnpj = (re.search(r"(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})", texto_completo).group(0)
-            if re.search(r"(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})", texto_completo) else "Não encontrado")
+    # CNPJ (buscando pelo label específico da contratante)
+    cnpj = (re.search(r"CNPJ/CPF:\s*.*?(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})", texto_completo, re.DOTALL).group(1)
+            if re.search(r"CNPJ/CPF:\s*.*?(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})", texto_completo, re.DOTALL) else "Não encontrado")
     
-    # 3. Forma de Pagamento (com abreviação)
+    # 3. Forma de Pagamento (lógica de parcelas corrigida)
     forma_pagamento_raw = (re.search(r"Forma de Pagamento:\s*([^\n]+)", texto_completo).group(1).strip()
                            if re.search(r"Forma de Pagamento:\s*([^\n]+)", texto_completo) else "")
     parcelas_raw = (re.search(r"Parcelas:\s*(\d+)", texto_completo).group(1).strip()
                     if re.search(r"Parcelas:\s*(\d+)", texto_completo) else "")
+    
     forma_final = forma_pagamento_raw
     if "cartao" in forma_pagamento_raw.lower():
         forma_final = "Cartão"
     elif "boleto" in forma_pagamento_raw.lower():
         forma_final = "Boleto"
-    pagamento_final = f"{forma_final} {parcelas_raw}x" if forma_final and parcelas_raw else forma_final
+    
+    if parcelas_raw:
+        pagamento_final = f"{forma_final} {parcelas_raw}x"
+    else:
+        pagamento_final = forma_final
 
-    # 4. Produto (busca mais genérica pela estrutura)
+    # 4. Produto (extração ajustada para não incluir o valor)
     itens_bloco = re.search(r"Itens adquiridos(.*?)Condição de Pagamento", texto_completo, re.DOTALL)
     produto = "Não encontrado"
     quantidade = "Não encontrado"
     if itens_bloco:
         bloco_itens = itens_bloco.group(1)
-        match_produto = re.search(r"\d+\s+UN\s+[\w-]+\s+([^\n]+)", bloco_itens)
+        # Captura o texto entre o código do produto e a palavra "Versão"
+        match_produto = re.search(r"\d+\s+UN\s+[\w-]+\s+(.*?)\s+Versão", bloco_itens, re.DOTALL)
         if match_produto:
-            produto_extraido = match_produto.group(1).strip()
+            produto_extraido = match_produto.group(1).strip().replace("\n", " ")
             produto = produto_extraido.replace("STANDARD", "STD").replace("PROFESSIONAL", "PRO")
             produto = re.sub(r'\s+\d{4}', '', produto).strip()
         
