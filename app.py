@@ -57,6 +57,7 @@ def extrair_dados_do_pdf(arquivo_pdf):
     vendedor = (re.search(r"Vendedor:\s*([^\n]+)", texto_completo).group(1).strip()
                 if re.search(r"Vendedor:\s*([^\n]+)", texto_completo) else "Não encontrado")
 
+    # Dicionário com a estrutura de saída para a planilha
     dados = {
         "CONTRATO": [codigo],
         "CNPJ": [cnpj],
@@ -65,4 +66,27 @@ def extrair_dados_do_pdf(arquivo_pdf):
         "Produto": [produto],
         "Qtd Novos": [quantidade],
         "Valor Novos": [valor_total],
-        "Data
+        "Data da Venda": [data],
+        "Vendedor": [vendedor.split(" ")[0]]
+    }
+    return pd.DataFrame.from_dict(dados)
+
+# --- Interface Gráfica ---
+st.set_page_config(page_title="Extrator de Dados de Contratos", layout="centered")
+st.title("🚀 Extrator de Dados de Contratos")
+
+uploaded_file = st.file_uploader("1. Faça o upload do seu arquivo PDF de contrato", type="pdf")
+
+if uploaded_file is not None:
+    with st.spinner('Analisando o PDF...'):
+        df_dados = extrair_dados_do_pdf(uploaded_file)
+        if df_dados is not None:
+            st.success("2. Dados extraídos com sucesso!")
+            st.dataframe(df_dados)
+            texto_para_copiar = df_dados.to_csv(sep='\t', index=False, header=False)
+            st.subheader("3. Copie abaixo e cole na sua planilha")
+            st.text_area(
+                "Texto formatado para cópia (Ctrl+A para selecionar tudo):", 
+                texto_para_copiar, 
+                height=150
+            )
