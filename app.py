@@ -45,14 +45,13 @@ def extrair_dados_do_pdf(arquivo_pdf):
     else:
         pagamento_final = forma_final
 
-    # --- CORREÇÃO FINAL NO PRODUTO ---
+    # Busca por nomes de produto conhecidos e fixos
     itens_bloco = re.search(r"Itens adquiridos(.*?)Condição de Pagamento", texto_completo, re.DOTALL)
     produto = "Não encontrado"
     quantidade = "Não encontrado"
     if itens_bloco:
         bloco_itens = itens_bloco.group(1)
         
-        # Nova regra: Procura por nomes de produtos conhecidos e fixos
         match_produto = re.search(r"(ZWCAD STANDARD|ZWCAD PROFESSIONAL)", bloco_itens, re.IGNORECASE)
         if match_produto:
             produto_extraido = match_produto.group(1).upper()
@@ -61,7 +60,6 @@ def extrair_dados_do_pdf(arquivo_pdf):
             elif "PROFESSIONAL" in produto_extraido:
                 produto = "ZWCAD PRO"
         
-        # A lógica da quantidade permanece a mesma
         match_qtde = re.search(r"(\d+)\s+UN", bloco_itens)
         if match_qtde:
             quantidade = match_qtde.group(1).strip()
@@ -111,4 +109,10 @@ if uploaded_file is not None:
         if df_dados is not None:
             st.success("2. Dados extraídos com sucesso!")
             st.dataframe(df_dados)
-            texto_para_copiar = df_dados.to_csv(sep
+            texto_para_copiar = df_dados.to_csv(sep='\t', index=False, header=False)
+            st.subheader("3. Copie abaixo e cole na sua planilha")
+            st.text_area(
+                "Texto formatado para cópia (Ctrl+A para selecionar tudo):", 
+                texto_para_copiar, 
+                height=150
+            )
