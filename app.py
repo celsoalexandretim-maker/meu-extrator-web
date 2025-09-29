@@ -45,21 +45,21 @@ def extrair_dados_do_pdf(arquivo_pdf):
     else:
         pagamento_final = forma_final
 
-    # Busca por nomes de produto conhecidos e fixos
+    # --- CORREÇÃO FINAL NO PRODUTO (NOVA ABORDAGEM) ---
     itens_bloco = re.search(r"Itens adquiridos(.*?)Condição de Pagamento", texto_completo, re.DOTALL)
     produto = "Não encontrado"
     quantidade = "Não encontrado"
     if itens_bloco:
         bloco_itens = itens_bloco.group(1)
         
-        match_produto = re.search(r"(ZWCAD STANDARD|ZWCAD PROFESSIONAL)", bloco_itens, re.IGNORECASE)
+        # Nova regra: Procura por "ZWCAD" + "STANDARD" ou "PROFESSIONAL", permitindo espaços/quebras de linha entre eles.
+        match_produto = re.search(r"(ZWCAD\s+STANDARD|ZWCAD\s+PROFESSIONAL)", bloco_itens, re.IGNORECASE)
         if match_produto:
-            produto_extraido = match_produto.group(1).upper()
-            if "STANDARD" in produto_extraido:
-                produto = "ZWCAD STD"
-            elif "PROFESSIONAL" in produto_extraido:
-                produto = "ZWCAD PRO"
+            produto_encontrado = match_produto.group(1)
+            # Limpa espaços extras e quebras de linha, mantendo o nome completo.
+            produto = re.sub(r'\s+', ' ', produto_encontrado).strip().upper()
         
+        # A lógica da quantidade permanece a mesma
         match_qtde = re.search(r"(\d+)\s+UN", bloco_itens)
         if match_qtde:
             quantidade = match_qtde.group(1).strip()
