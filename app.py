@@ -22,8 +22,9 @@ def extrair_dados_do_pdf(arquivo_pdf):
 
     # --- REGRAS DE EXTRAÇÃO ---
 
-    codigo = (re.search(r"Contrato de Licença de Uso.*?([A-Z0-9]{6})", texto_completo, re.DOTALL).group(1)
-              if re.search(r"Contrato de Licença de Uso.*?([A-Z0-9]{6})", texto_completo, re.DOTALL) else "Não encontrado")
+    # 1. Número do Contrato (com a nova regra sugerida por você)
+    codigo = (re.search(r"Contrato de Licença de Uso\s*([A-Z0-9]{6})\s*Dados da Contratante", texto_completo, re.DOTALL).group(1)
+              if re.search(r"Contrato de Licença de Uso\s*([A-Z0-9]{6})\s*Dados da Contratante", texto_completo, re.DOTALL) else "Não encontrado")
 
     razao_social = (re.search(r"Razão Social:\s*(.*?)Licenciante:", texto_completo, re.DOTALL).group(1).strip().replace("\n", " ")
                     if re.search(r"Razão Social:\s*(.*?)Licenciante:", texto_completo, re.DOTALL) else "Não encontrada")
@@ -52,7 +53,7 @@ def extrair_dados_do_pdf(arquivo_pdf):
     if itens_bloco:
         bloco_itens = itens_bloco.group(1)
         
-        match_produto = re.search(r"\d+\s+UN\s+([\w-]+)\s+(.+)", bloco_itens)
+        match_produto = re.search(r"\d+\s+UN\s+[\w-]+\s+(.+)", bloco_itens)
         if match_produto:
             produto = match_produto.group(2).strip()
         
