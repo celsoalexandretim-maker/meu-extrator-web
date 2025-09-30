@@ -22,7 +22,6 @@ def extrair_dados_do_pdf(arquivo_pdf):
 
     # --- REGRAS DE EXTRAÇÃO ---
 
-    # 1. Número do Contrato (com a nova regra sugerida por você)
     codigo = (re.search(r"Contrato de Licença de Uso\s*([A-Z0-9]{6})\s*Dados da Contratante", texto_completo, re.DOTALL).group(1)
               if re.search(r"Contrato de Licença de Uso\s*([A-Z0-9]{6})\s*Dados da Contratante", texto_completo, re.DOTALL) else "Não encontrado")
 
@@ -46,20 +45,20 @@ def extrair_dados_do_pdf(arquivo_pdf):
     else:
         pagamento_final = forma_final
 
-    # Abordagem estrutural para o produto
-    itens_bloco = re.search(r"Itens adquiridos(.*?)Condição de Pagamento", texto_completo, re.DOTALL)
+    # --- CORREÇÃO FINAL NO PRODUTO - BUSCA DIRETA ---
     produto = "Não encontrado"
+    # Procura por um dos nomes de produto conhecidos em qualquer parte do texto
+    match_produto = re.search(r"(ZWCAD\s+STANDARD|ZWCAD\s+PROFESSIONAL)", texto_completo, re.IGNORECASE)
+    if match_produto:
+        produto_encontrado = match_produto.group(1)
+        # Limpa o nome e mantém o formato completo, sem abreviações
+        produto = re.sub(r'\s+', ' ', produto_encontrado).strip().upper()
+
     quantidade = "Não encontrado"
-    if itens_bloco:
-        bloco_itens = itens_bloco.group(1)
-        
-        match_produto = re.search(r"\d+\s+UN\s+[\w-]+\s+(.+)", bloco_itens)
-        if match_produto:
-            produto = match_produto.group(2).strip()
-        
-        match_qtde = re.search(r"(\d+)\s+UN", bloco_itens)
-        if match_qtde:
-            quantidade = match_qtde.group(1).strip()
+    match_qtde = re.search(r"(\d+)\s+UN", texto_completo)
+    if match_qtde:
+        quantidade = match_qtde.group(1).strip()
+
 
     valor_total = (re.search(r"Valor Total\s*(R\$\s*[\d\.,]+)", texto_completo).group(1)
                    if re.search(r"Valor Total\s*(R\$\s*[\d\.,]+)", texto_completo) else "Não encontrado")
